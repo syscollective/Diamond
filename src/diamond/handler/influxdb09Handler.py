@@ -16,7 +16,7 @@ v1.2 : added a timer to delay influxdb writing in case of failure
 
 - enable it in `diamond.conf` :
 
-handlers = diamond.handler.influxdbHandler.InfluxdbHandler
+handlers = diamond.handler.influxdb08Handler.InfluxdbHandler
 
 - add config to `diamond.conf` :
 
@@ -35,7 +35,7 @@ import time
 from Handler import Handler
 
 try:
-    from influxdb.influxdb08.client import InfluxDBClient
+    from influxdb.client import InfluxDBClient
 except ImportError:
     InfluxDBClient = None
 
@@ -52,7 +52,7 @@ class InfluxdbHandler(Handler):
         Handler.__init__(self, config)
 
         if not InfluxDBClient:
-            self.log.error('influxdb.influxdb08.client.InfluxDBClient import failed. '
+            self.log.error('influxdb.client.InfluxDBClient import failed. '
                            'Handler disabled')
             self.enabled = False
             return
@@ -133,8 +133,7 @@ class InfluxdbHandler(Handler):
     def process(self, metric):
         if self.batch_count <= self.metric_max_cache:
             # Add the data to the batch
-            self.batch.setdefault(metric.path, []).append([metric.timestamp,
-                                                           metric.value])
+            self.batch[metric.path]={'time': metric.timestamp, 'value': metric.value}
             self.batch_count += 1
         # If there are sufficient metrics, then pickle and send
         if self.batch_count >= self.batch_size and (
@@ -172,9 +171,8 @@ class InfluxdbHandler(Handler):
                     metrics = []
                     for path in self.batch:
                         metrics.append({
-                            "points": self.batch[path],
-                            "name": path,
-                            "columns": ["time", "value"]})
+                            "fields": self.batch[path],
+                            "measurement": path})
                     # Send data to influxdb
                     self.log.debug("InfluxdbHandler: writing %d series of data",
                                    len(metrics))
