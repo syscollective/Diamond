@@ -100,7 +100,10 @@ class SensuClientHandler(Handler):
         """
         Process a metric by sending it to sensu-client
         """
-        str_metric = '%s %d %d' % (metric.path, metric.value, metric.timestamp)
+        metric_all = metric.path.split(metric.host)[1].split('.')
+        metric_collector = metric_all[1]
+        metric_name = '.'.join(metric_all[2:])
+        str_metric = 'put %s %d %d host=%s type=%s collector=%s precision=%d' % (metric_name, metric.timestamp, metric.value, metric.host, metric.metric_type, metric_collector, metric.precision)
         # Append the data to the array as a string
         self.metrics.append(str_metric)
         if len(self.metrics) >= self.batch_size:
@@ -141,10 +144,9 @@ class SensuClientHandler(Handler):
                     self.log.debug("SensuClientHandler: Connect failed.")
                 else:
                     # Send data to socket
-                    data = '{"name": "%s", "type": "metric", "output": "%s"}' % (self.sensu_check,'\\n'.join(self.metrics))
+                    data = '{"name": "%s", "type": "metric", "output_type": "opentsdb", "output": "%s"}' % (self.sensu_check,'\\n'.join(self.metrics)+'\\n')
                     self._send_data(data)
                     self._close()
-                    #print data
                     self.metrics = []
             except Exception:
                 self._close()
